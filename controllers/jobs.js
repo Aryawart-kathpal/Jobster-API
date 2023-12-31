@@ -3,8 +3,51 @@ const {StatusCodes}= require('http-status-codes');
 const {BadRequestError,notFoundError}= require('../errors');
 
 const getAllJobs = async(req,res)=>{
-    const jobs = await Job.find({createdBy : req.user.userId}).sort('createdBy');
-    res.status(StatusCodes.OK).json({jobs,count : jobs.length});
+    const {sort,search,jobType,status} = req.query;
+
+    const queryObject ={
+        createdBy:req.user.userId
+    }
+    if(search){
+        // if this search value not found then return all jobs
+        queryObject.position = {$regex : search , $options:'i'};// $regex:search to search that word anywhere in the position and options 'i' for case insensitive
+    }
+
+    if(status && status!=='all'){
+        queryObject.status=status;
+    }
+
+    if(jobType && jobType!=='all'){
+        queryObject.jobType=jobType;
+    }
+    let result = Job.find(queryObject);
+
+    if(sort === 'latest'){
+        result=result.sort('-createdAt');
+    }
+    if(sort==='oldest'){
+        result=result.sort('createdAt');
+    }
+    if(sort==='a-z'){
+        result=result.sort('position');
+    }
+    if(sort==='z-a'){
+        result=result.sort('position');
+    }
+
+    //Pagination
+    const page = req.query.page || 1;
+    const limit = req.query.limit || 10;
+    const skip =(page-1)*limit;
+
+    result.skip(skip).limit(limit);
+
+    const totalJobs= await Job.countDocuments(queryObject);
+    const numOfPages = Math.ceil(totalJobs/limit);
+
+    // totalJobs and numOfPages are required on my frontend
+    const jobs = await result;
+    res.status(StatusCodes.OK).json({jobs,totalJobs,numOfPages});
 }
 
 const getJob = async(req,res)=>{
