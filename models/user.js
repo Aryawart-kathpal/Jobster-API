@@ -37,36 +37,19 @@ const UserSchema = mongoose.Schema({
     }
 })
 
-// using the function keyword so that we can use 'this' keyword
-// we modify the password to hashed password here only, looks much of a cleaner code
-
-// instead of using next() we can use a function that returns a promise i.e. using only async await is good, no need of next() keyword
-
 UserSchema.pre('save',async function(/*next*/){
+    //console.log(this.modifiedPaths());-> the paths whose value is changed while updating, as password is only edited once when registering the user, so we want it to change only then, and not again hash it when we send the update req
+    if(!this.isModified('password')) return;
+
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password,salt);
     // next();
 })
-// hashing the password here only before passing to req.body
-
-// these are known as the Schema instance methods witn syntax as schema.methods.(methodName)
-/*UserSchema.methods.getName = function(){
-    return this.name;
-}*/
 
 // generating the token from here only using the instance methods so that controller doesn't get crowded
 UserSchema.methods.createJWT = function(){
     return jwt.sign({userId:this._id,name:this.name},process.env.JWT_SECRET,{expiresIn : process.env.JWT_LIFETIME});
 }
-
-//create comparePassword here only so that we could directly invoke it in the controller
-// ** async function
-/*UserSchema.methods.comparePassword = async function(candidatePassword){
-    console.log(candidatePassword);
-    console.log(this.password);
-    const isMatch = await bcrypt.compare(candidatePassword, this.passsword); // used in comparing the hashed passwords
-    return isMatch;
-}*/
 
 UserSchema.methods.comparePassword = async function (candidatePassword) {
     const isMatch = await bcrypt.compare(candidatePassword, this.password);

@@ -33,6 +33,7 @@ const login = async(req,res)=>{
     res.status(StatusCodes.OK).json({user :{email:user.email,name:user.name,lastName:user.lastName,location:user.location,token}});//200
 }
 
+// in the User.findOne() operation we hook the pre and post save hook in the USER model, so here the password once again gets hashed, i.e. we hash the password again, which is not a good practice
 const updateUser = async(req,res)=>{
     // console.log(req.user);-> we are getting this from authentication middleware
     const {name,lastName,email,location}=req.body;
