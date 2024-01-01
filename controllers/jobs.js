@@ -1,6 +1,8 @@
 const Job = require('../models/Job');
 const {StatusCodes}= require('http-status-codes');
 const {BadRequestError,notFoundError}= require('../errors');
+const mongoose = require('mongoose');
+const moment= require('moment');
 
 const getAllJobs = async(req,res)=>{
     const {sort,search,jobType,status} = req.query;
@@ -96,4 +98,45 @@ const deleteJob = async(req,res)=>{
     res.status(StatusCodes.OK).send();
 }
 
-module.exports ={getAllJobs,getJob,updateJob,createJob,deleteJob};
+const showStats=async(req,res)=>{
+    let stats = await Job.aggregate([
+        {$match:{createdBy:mongoose.Types.ObjectId(req.user.userId)}},
+        {$group: {_id: '$status',count:{$sum:1}}},
+    ])
+
+    // in detail of using reduce refer readme file
+    stats=stats.reduce((acc,curr)=>{
+        const {_id:title,count}=curr;
+        acc[title]=count;
+        return acc;
+    },{});// second argument tells about the return type {}-> json object
+
+    // making the checks for the non-zero or zero values in the backend, double check in the backend also
+    const defaultStats={
+        pending:stats.pending || 0,
+        interview : stats.interview || 0,
+        declined : stats.declined || 0
+    }
+
+    let monthlyApplications = await Job.aggregate([
+        {$match:{createdBy:mongoose.Types.ObjectId(req.user.userId)}},
+        {$group:{
+            _id:{year:{$year: '$createdAt'},month :{$month:'$createdAt'}},
+            count :{$sum:1}
+        }},
+        {$sort : {'_id.year':-1,'_id.month':-1}},
+        {$limit:6}
+    ])
+
+    monthlyApplications=monthlyApplications.map((item)=>{
+        const{ _id:{year,month},count} =item;
+        const date =moment().month(month-1).year(year).format('MMM Y');// these different formats are available on moment js refer docs for ex. here Jul 2023, Dec 2022,etc
+        return {date,count};
+    }).reverse();// as we want the last 6 months in the opposite order
+
+    console.log(monthlyApplications);
+
+    res.status(StatusCodes.OK).json({defaultStats,monthlyApplications});// our frontend is expecting these two things
+}
+
+module.exports ={getAllJobs,getJob,updateJob,createJob,deleteJob,showStats};
