@@ -101,7 +101,7 @@ const deleteJob = async(req,res)=>{
 const showStats=async(req,res)=>{
     let stats = await Job.aggregate([
         {$match:{createdBy:mongoose.Types.ObjectId(req.user.userId)}},
-        {$group: {_id: '$status',count:{$sum:1}}},
+        {$group: {_id: '$status',count:{$sum:1}}},// $sum:1 means that one data in one type of status, for ex. 'declined' would account for a value '1'
     ])
 
     // in detail of using reduce refer readme file
